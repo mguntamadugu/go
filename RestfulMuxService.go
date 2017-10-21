@@ -101,12 +101,89 @@ func deleteCustomerHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// update existing customer record
 func editCustomerHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "hello world, edit")
+
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	var arrIndex int
+	var bExisting bool
+	//var cRecord customer
+
+	for i, c := range customers {
+		if c.Id == id {
+
+			// locate index of specified customer record
+			bExisting = true
+			arrIndex = i
+			//cRecord = c
+			break;
+		}
+	}
+
+	if bExisting == false {
+		w.Write([]byte("Record does not already exist for customer id: " + id))
+	} else {
+
+		// Read JSON record into new customer object
+		newCustomer := customer{}
+		err := json.NewDecoder(r.Body).Decode(&newCustomer)
+		if err != nil {
+			fmt.Fprintf(w, err.Error())
+		}
+
+		// Replace existing record with new record for specified customer
+		customers[arrIndex] = newCustomer
+
+		// Send list
+		err = json.NewEncoder(w).Encode(customers) // encode new customers list  into Json and pass to writer
+		if err != nil {
+			fmt.Fprintf(w, err.Error())
+		}
+	}
+
 }
 
+// add a single new customer record
 func createCustomerHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "hello world, edit")
+
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	var bExisting bool
+	//var cRecord customer
+
+	for _, c := range customers {
+		if c.Id == id {
+
+			bExisting = true
+			//cRecord = c
+			break;
+		}
+	}
+
+	if bExisting == true {
+		w.Write([]byte("Record already exists for customer id: " + id))
+	} else {
+
+		// Read JSON record into new customer object
+		newCustomers := []customer{}
+		err := json.NewDecoder(r.Body).Decode(&newCustomers)
+		if err != nil {
+			fmt.Fprintf(w, err.Error())
+		}
+
+		// Append new customer(s) to list
+		customers = append(customers, newCustomers...)
+
+		// Send list
+		err = json.NewEncoder(w).Encode(customers) // encode new customers list  into Json and pass to writer
+		if err != nil {
+			fmt.Fprintf(w, err.Error())
+		}
+	}
+
 }
 
 
