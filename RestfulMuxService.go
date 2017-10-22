@@ -1,3 +1,8 @@
+/*
+ * Implement a Simple REST service that tracks/maintains customer data
+ *
+ */
+
 package main
 
 import (
@@ -41,11 +46,16 @@ func main() {
 	http.ListenAndServe(":8080", m)
 }
 
+/*
+ * Return all customer records in JSON format
+ */
 func getCustomersHandler(w http.ResponseWriter, r *http.Request) {
 
-	err := json.NewEncoder(w).Encode(customers) // encode customer array into Json and pass to writer
+	// encode customer array into Json and pass to writer
+	err := json.NewEncoder(w).Encode(customers)
 	if err != nil {
-		fmt.Fprintf(w, err.Error())
+		http.Error(w, "json encode error: " + err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -64,14 +74,20 @@ func getCustomerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Customer record not found
 	if bFound == false {
-		w.Write([]byte("Record not found for customer id: " + id))
-	} else {
-		err := json.NewEncoder(w).Encode(result) // encode found customer  into Json and pass to writer
-		if err != nil {
-			fmt.Fprintf(w, err.Error())
-		}
+		// Should we return 204 )no content) or 404 (resource not found)
+		http.Error(w, "Record not found for customer id: " + id, http.StatusNoContent)
+		return
 	}
+
+	// encode found customer  into Json and pass to writer
+	err := json.NewEncoder(w).Encode(result)
+	if err != nil {
+		http.Error(w, "json encode error: " + err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 
 }
 
@@ -86,18 +102,23 @@ func deleteCustomerHandler(w http.ResponseWriter, r *http.Request) {
 
 			customers = append(customers[:arrIndex], customers[arrIndex+1:]...)
 			bRemoved = true
-			break;
+			break
 		}
 	}
 
+	// Removed existing customer record or not
 	if bRemoved == false {
-		w.Write([]byte("Record not found for customer id: " + id))
-	} else {
-		err := json.NewEncoder(w).Encode(customers) // encode new customers list  into Json and pass to writer
-		if err != nil {
-			fmt.Fprintf(w, err.Error())
-		}
+		http.Error(w, "Record not found for customer id: " + id, http.StatusNotFound)
+		return
 	}
+
+	// encode remaining customers list  into Json and pass to writer
+	err := json.NewEncoder(w).Encode(customers)
+	if err != nil {
+		http.Error(w, "json encode error: " + err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 
 }
 
@@ -118,29 +139,32 @@ func editCustomerHandler(w http.ResponseWriter, r *http.Request) {
 			bExisting = true
 			arrIndex = i
 			//cRecord = c
-			break;
+			break
 		}
 	}
 
+	// Found existing customer record to edit/replace
 	if bExisting == false {
-		w.Write([]byte("Record does not already exist for customer id: " + id))
-	} else {
+		http.Error(w, "Record does not already exist for customer id: " + id, http.StatusUnprocessableEntity)
+		return
+	}
 
-		// Read JSON record into new customer object
-		newCustomer := customer{}
-		err := json.NewDecoder(r.Body).Decode(&newCustomer)
-		if err != nil {
-			fmt.Fprintf(w, err.Error())
-		}
+	// Read JSON record into new customer object
+	newCustomer := customer{}
+	err := json.NewDecoder(r.Body).Decode(&newCustomer)
+	if err != nil {
+		http.Error(w, "json decode error: " + err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-		// Replace existing record with new record for specified customer
-		customers[arrIndex] = newCustomer
+	// Replace existing record with new record for specified customer
+	customers[arrIndex] = newCustomer
 
-		// Send list
-		err = json.NewEncoder(w).Encode(customers) // encode new customers list  into Json and pass to writer
-		if err != nil {
-			fmt.Fprintf(w, err.Error())
-		}
+	// encode new customers list  into Json and pass to writer
+	err = json.NewEncoder(w).Encode(customers)
+	if err != nil {
+		http.Error(w, "json encode error: " + err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 }
@@ -163,26 +187,37 @@ func createCustomerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Validate customer record does not exist
 	if bExisting == true {
-		w.Write([]byte("Record already exists for customer id: " + id))
-	} else {
-
-		// Read JSON record into new customer object
-		newCustomers := []customer{}
-		err := json.NewDecoder(r.Body).Decode(&newCustomers)
-		if err != nil {
-			fmt.Fprintf(w, err.Error())
-		}
-
-		// Append new customer(s) to list
-		customers = append(customers, newCustomers...)
-
-		// Send list
-		err = json.NewEncoder(w).Encode(customers) // encode new customers list  into Json and pass to writer
-		if err != nil {
-			fmt.Fprintf(w, err.Error())
-		}
+		http.Error(w, "Record already exists for customer id: " + id, http.StatusConflict)
+		return
 	}
+
+	// Read JSON record into new customer object
+	newCustomers := []customer{}
+	err := json.NewDecoder(r.Body).Decode(&newCustomers)
+	if err != nil {
+		http.Error(w, "json decode error: " + err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Validate customer id in URL matches customer id IN JSON object
+	if id != newCustomers[0].Id {
+		http.Error(w, "customer id in post request of url: " + id + " does not match record: " + newCustomers[0].Id,
+			http.StatusBadRequest)
+		return
+	}
+
+	// Append new customer(s) to list
+	customers = append(customers, newCustomers...)
+
+	// Send list
+	err = json.NewEncoder(w).Encode(customers) // encode new customers list  into Json and pass to writer
+	if err != nil {
+		http.Error(w, "json encode error: " + err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 
 }
 
